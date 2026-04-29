@@ -111,12 +111,16 @@ export function TransactionList({ transactions, onDelete, onEdit }: TransactionL
         <tbody className="text-sm">
           {sortedTransactions.map((t) => (
             <tr key={t.id} className="border-b border-slate-800/50 group hover:bg-slate-800/50 transition-colors flex flex-col sm:table-row">
-              <td className="p-4 sm:font-medium text-slate-200 hidden sm:table-cell align-middle">
-                {t.note || 'No description'}
+              <td className="p-4 align-middle flex justify-between sm:table-cell pb-1 sm:pb-4">
+                <span className="sm:hidden text-[10px] font-bold text-slate-500 uppercase tracking-widest mr-4">Details:</span>
+                <div className="flex flex-col sm:block justify-end text-right sm:text-left">
+                  <span className="font-medium text-slate-200 block">{t.note || 'No description'}</span>
+                  <span className="text-xs text-slate-400 sm:hidden block mt-1">{format(new Date(t.date), 'dd MMM yyyy')}</span>
+                </div>
               </td>
-              <td className="p-4 align-middle flex justify-between sm:table-cell">
+              <td className="p-4 align-middle flex justify-between sm:table-cell pt-1 sm:pt-4">
                 <span className="sm:hidden text-[10px] font-bold text-slate-500 uppercase tracking-widest mr-4">Category:</span>
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center justify-end sm:justify-start">
                   <span className={`px-2 py-1 text-[10px] font-bold rounded-sm uppercase tracking-widest ${t.type === 'income' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-orange-500/10 text-orange-400'}`}>
                     {t.type}
                   </span>

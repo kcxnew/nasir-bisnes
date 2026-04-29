@@ -118,7 +118,7 @@ export function TransactionForm({ onSubmit, initialData, onCancelEdit }: Transac
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-[10px] text-slate-400 block mb-1 uppercase tracking-widest font-bold">Category</label>
             <select

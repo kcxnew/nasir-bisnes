@@ -12,6 +12,7 @@ import { TransactionList } from "./components/TransactionList";
 import { BudgetTracker } from "./components/BudgetTracker";
 import { SavingsGoals } from "./components/SavingsGoals";
 import { RecurringTransactions } from "./components/RecurringTransactions";
+import { MonthlyReportGenerator } from "./components/MonthlyReportGenerator";
 import { Wallet, Settings, LayoutDashboard, Menu, X } from "lucide-react";
 import { Transaction } from "./types";
 
@@ -111,16 +112,23 @@ export default function App() {
         </header>
 
         {/* Dashboard Content */}
-        <div className="flex-1 p-6 lg:p-8 w-full max-w-6xl mx-auto space-y-8">
-          <header className="flex justify-between items-end mb-8 pt-2">
+        <div className="flex-1 p-4 lg:p-8 w-full max-w-6xl mx-auto space-y-6 lg:space-y-8">
+          <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-4 lg:mb-8 pt-2">
             <div>
               <h2 className="text-2xl font-bold text-white">Dashboard Overview</h2>
               <p className="text-slate-400 text-sm">Monitoring your personal cash flow</p>
             </div>
-            <div className="hidden sm:flex gap-2 text-xs font-medium">
-              <span className="px-3 py-1 bg-slate-900 border border-slate-800 hover:text-slate-200 transition-colors cursor-pointer rounded-full text-slate-400">Weekly</span>
-              <span className="px-3 py-1 bg-blue-600 text-white rounded-full">Monthly</span>
-              <span className="px-3 py-1 bg-slate-900 border border-slate-800 hover:text-slate-200 transition-colors cursor-pointer rounded-full text-slate-400">Yearly</span>
+            <div className="flex flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
+              <MonthlyReportGenerator 
+                transactions={transactions} 
+                budgets={budgets} 
+                savingsGoals={savingsGoals} 
+              />
+              <div className="flex gap-2 text-xs font-medium w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 hide-scrollbar">
+                <span className="px-3 py-1 bg-slate-900 border border-slate-800 hover:text-slate-200 transition-colors cursor-pointer rounded-full text-slate-400 whitespace-nowrap">Weekly</span>
+                <span className="px-3 py-1 bg-blue-600 text-white rounded-full whitespace-nowrap">Monthly</span>
+                <span className="px-3 py-1 bg-slate-900 border border-slate-800 hover:text-slate-200 transition-colors cursor-pointer rounded-full text-slate-400 whitespace-nowrap">Yearly</span>
+              </div>
             </div>
           </header>
 
