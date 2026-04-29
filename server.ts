@@ -7,6 +7,9 @@ import { createServer as createViteServer } from "vite";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 3000;
 const DB_FILE = path.join(process.cwd(), "data.json");
+const BUDGETS_FILE = path.join(process.cwd(), "budgets.json");
+const SAVINGS_FILE = path.join(process.cwd(), "savings.json");
+const RECURRING_FILE = path.join(process.cwd(), "recurring.json");
 
 interface Transaction {
   id: string;
@@ -16,6 +19,24 @@ interface Transaction {
   date: string;
   note?: string;
   createdAt: number;
+}
+
+interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  color?: string;
+}
+
+interface RecurringTransaction {
+  id: string;
+  amount: number;
+  category: string;
+  type: "income" | "expense";
+  description: string;
+  dayOfMonth: number;
+  lastProcessedDate?: string;
 }
 
 const generateInitialData = (): Transaction[] => {
@@ -52,6 +73,118 @@ async function writeData(data: Transaction[]) {
   }
 }
 
+async function readBudgets(): Promise<Record<string, number>> {
+  try {
+    const data = await fs.readFile(BUDGETS_FILE, "utf-8");
+    return JSON.parse(data);
+  } catch (error: any) {
+    return {};
+  }
+}
+
+async function writeBudgets(budgets: Record<string, number>) {
+  try {
+     await fs.writeFile(BUDGETS_FILE, JSON.stringify(budgets, null, 2), "utf-8");
+  } catch(e) {
+     console.error("Write Budgets Error:", e);
+  }
+}
+
+async function readSavingsGoals(): Promise<SavingsGoal[]> {
+  try {
+    const data = await fs.readFile(SAVINGS_FILE, "utf-8");
+    return JSON.parse(data);
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      const initial: SavingsGoal[] = [
+        { id: '1', name: 'Tabung Kecemasan', targetAmount: 10000, currentAmount: 2000, color: '#ef4444' }
+      ];
+      await writeSavingsGoals(initial);
+      return initial;
+    }
+    return [];
+  }
+}
+
+async function writeSavingsGoals(data: SavingsGoal[]) {
+  try {
+     await fs.writeFile(SAVINGS_FILE, JSON.stringify(data, null, 2), "utf-8");
+  } catch(e) {
+     console.error("Write Savings Error:", e);
+  }
+}
+
+async function readRecurringTransactions(): Promise<RecurringTransaction[]> {
+  try {
+    const data = await fs.readFile(RECURRING_FILE, "utf-8");
+    return JSON.parse(data);
+  } catch (error: any) {
+    return [];
+  }
+}
+
+async function writeRecurringTransactions(data: RecurringTransaction[]) {
+  try {
+     await fs.writeFile(RECURRING_FILE, JSON.stringify(data, null, 2), "utf-8");
+  } catch(e) {
+     console.error("Write Recurring Error:", e);
+  }
+}
+
+let broadcastUpdate: () => Promise<void>;
+
+async function processRecurringTransactions() {
+  const recurring = await readRecurringTransactions();
+  if (recurring.length === 0) return;
+
+  const today = new Date();
+  // Set to local timezone conceptually, but use UTC for simplicity to match node mostly
+  const todayISO = today.toISOString().split('T')[0];
+  const [year, month, day] = todayISO.split('-').map(Number);
+
+  let updated = false;
+  let transactions = await readData();
+
+  for (const rt of recurring) {
+    // If the dayOfMonth matches or it's the end of month and dayOfMonth > last day
+    const lastDayOfMonth = new Date(year, month, 0).getDate();
+    const targetDay = Math.min(rt.dayOfMonth, lastDayOfMonth);
+
+    if (day >= targetDay) {
+      const expectedDate = `${year}-${String(month).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+      
+      // if not processed this month
+      if (!rt.lastProcessedDate || rt.lastProcessedDate < expectedDate) {
+        // Create transaction
+        const newT: Transaction = {
+          id: crypto.randomUUID(),
+          type: rt.type,
+          amount: rt.amount,
+          category: rt.category,
+          date: expectedDate,
+          note: rt.description + ' (Auto)',
+          createdAt: Date.now()
+        };
+        transactions.unshift(newT);
+        
+        rt.lastProcessedDate = todayISO;
+        updated = true;
+      }
+    }
+  }
+
+  if (updated) {
+    await writeData(transactions);
+    await writeRecurringTransactions(recurring);
+    if (broadcastUpdate) {
+      await broadcastUpdate();
+    }
+  }
+}
+
+// Run periodically every hour
+setInterval(processRecurringTransactions, 60 * 60 * 1000);
+
 async function startServer() {
   const app = express();
   app.use(express.json());
@@ -72,13 +205,16 @@ async function startServer() {
     });
   });
 
-  const broadcastUpdate = async () => {
+  broadcastUpdate = async () => {
     const data = await readData();
     const dataStr = JSON.stringify({ type: 'update', data });
     clients.forEach(client => {
       client.write(`data: ${dataStr}\n\n`);
     });
   };
+
+  // Run on startup
+  processRecurringTransactions();
 
   app.get("/api/transactions", async (req, res) => {
     const data = await readData();
@@ -124,6 +260,118 @@ async function startServer() {
     res.json({ success: true });
     broadcastUpdate();
   });
+
+  app.get("/api/budgets", async (req, res) => {
+    const budgets = await readBudgets();
+    res.json(budgets);
+  });
+
+  app.put("/api/budgets", async (req, res) => {
+    const newBudgets = req.body;
+    await writeBudgets(newBudgets);
+    res.json(newBudgets);
+    // You could also broadcast this if you want Realtime updates on budgets, 
+    // but we can just use another event or rely on refetching.
+    // For simplicity, we just broadcast as a general update.
+    const dataStr = JSON.stringify({ type: 'budgets_update', data: newBudgets });
+    clients.forEach(client => {
+      client.write(`data: ${dataStr}\n\n`);
+    });
+  });
+
+  // SAVINGS API
+  app.get("/api/savings_goals", async (req, res) => {
+    const data = await readSavingsGoals();
+    res.json(data);
+  });
+
+  app.post("/api/savings_goals", async (req, res) => {
+    const newGoal = req.body;
+    if (!newGoal.id) newGoal.id = crypto.randomUUID();
+    const data = await readSavingsGoals();
+    data.push(newGoal);
+    await writeSavingsGoals(data);
+    res.json(newGoal);
+    
+    const dataStr = JSON.stringify({ type: 'savings_update', data });
+    clients.forEach(client => client.write(`data: ${dataStr}\n\n`));
+  });
+
+  app.put("/api/savings_goals/:id", async (req, res) => {
+    const { id } = req.params;
+    const update = req.body;
+    const data = await readSavingsGoals();
+    const index = data.findIndex(g => g.id === id);
+    if (index !== -1) {
+       data[index] = { ...data[index], ...update };
+       await writeSavingsGoals(data);
+       res.json(data[index]);
+       const dataStr = JSON.stringify({ type: 'savings_update', data });
+       clients.forEach(client => client.write(`data: ${dataStr}\n\n`));
+    } else {
+       res.status(404).json({ error: "Not found" });
+    }
+  });
+
+  app.delete("/api/savings_goals/:id", async (req, res) => {
+    const { id } = req.params;
+    let data = await readSavingsGoals();
+    data = data.filter(g => g.id !== id);
+    await writeSavingsGoals(data);
+    res.json({ success: true });
+    const dataStr = JSON.stringify({ type: 'savings_update', data });
+    clients.forEach(client => client.write(`data: ${dataStr}\n\n`));
+  });
+
+  // RECURRING API
+  app.get("/api/recurring_transactions", async (req, res) => {
+    const data = await readRecurringTransactions();
+    res.json(data);
+  });
+
+  app.post("/api/recurring_transactions", async (req, res) => {
+    const newReq = req.body;
+    if (!newReq.id) newReq.id = crypto.randomUUID();
+    const data = await readRecurringTransactions();
+    data.push(newReq);
+    await writeRecurringTransactions(data);
+    res.json(newReq);
+    
+    // Evaluate if we need to process it right away
+    await processRecurringTransactions();
+
+    const dataStr = JSON.stringify({ type: 'recurring_update', data });
+    clients.forEach(client => client.write(`data: ${dataStr}\n\n`));
+  });
+
+  app.put("/api/recurring_transactions/:id", async (req, res) => {
+    const { id } = req.params;
+    const update = req.body;
+    const data = await readRecurringTransactions();
+    const index = data.findIndex(r => r.id === id);
+    if (index !== -1) {
+       data[index] = { ...data[index], ...update };
+       await writeRecurringTransactions(data);
+       res.json(data[index]);
+       
+       const dataStr = JSON.stringify({ type: 'recurring_update', data });
+       clients.forEach(client => client.write(`data: ${dataStr}\n\n`));
+    } else {
+       res.status(404).json({ error: "Not found" });
+    }
+  });
+
+  app.delete("/api/recurring_transactions/:id", async (req, res) => {
+    const { id } = req.params;
+    let data = await readRecurringTransactions();
+    data = data.filter(r => r.id !== id);
+    await writeRecurringTransactions(data);
+    res.json({ success: true });
+    
+    const dataStr = JSON.stringify({ type: 'recurring_update', data });
+    clients.forEach(client => client.write(`data: ${dataStr}\n\n`));
+  });
+
 
   // ======= WEBHOOK FOR HERMES / TELEGRAM AGENT =======
   // The agent sends a POST request. It can either send structured data or natural language text.

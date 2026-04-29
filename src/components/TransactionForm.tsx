@@ -1,5 +1,5 @@
 import { Transaction, TransactionType, CATEGORIES } from "@/src/types";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "./ui/Button";
 
 interface TransactionFormProps {

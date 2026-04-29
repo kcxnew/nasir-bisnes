@@ -9,11 +9,32 @@ import { SummaryCards } from "./components/SummaryCards";
 import { DashboardCharts } from "./components/DashboardCharts";
 import { TransactionForm } from "./components/TransactionForm";
 import { TransactionList } from "./components/TransactionList";
+import { BudgetTracker } from "./components/BudgetTracker";
+import { SavingsGoals } from "./components/SavingsGoals";
+import { RecurringTransactions } from "./components/RecurringTransactions";
 import { Wallet, Settings, LayoutDashboard, Menu, X } from "lucide-react";
 import { Transaction } from "./types";
 
 export default function App() {
-  const { transactions, addTransaction, editTransaction, deleteTransaction, totalIncome, totalExpense, balance, isLoaded } = useFinanceData();
+  const { 
+    transactions, 
+    budgets, 
+    savingsGoals,
+    recurringTransactions,
+    updateBudgets, 
+    addTransaction, 
+    editTransaction, 
+    deleteTransaction, 
+    addSavingsGoal,
+    editSavingsGoal,
+    deleteSavingsGoal,
+    addRecurringTransaction,
+    deleteRecurringTransaction,
+    totalIncome, 
+    totalExpense, 
+    balance, 
+    isLoaded 
+  } = useFinanceData();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
@@ -44,7 +65,7 @@ export default function App() {
           <div className="p-8 border-b border-slate-800">
             <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
               <div className="w-6 h-6 bg-blue-600 rounded-sm"></div>
-              KMD.FINANCE
+              Nasir.Finance
             </h1>
             <button className="absolute top-8 right-6 lg:hidden" onClick={() => setSidebarOpen(false)}>
               <X className="w-5 h-5 text-slate-500" />
@@ -106,6 +127,25 @@ export default function App() {
           <SummaryCards income={totalIncome} expense={totalExpense} balance={balance} />
           
           <DashboardCharts transactions={transactions} />
+
+          <BudgetTracker 
+            transactions={transactions} 
+            budgets={budgets} 
+            onUpdateBudgets={updateBudgets} 
+          />
+
+          <SavingsGoals 
+            savingsGoals={savingsGoals}
+            onAdd={addSavingsGoal}
+            onEdit={editSavingsGoal}
+            onDelete={deleteSavingsGoal}
+          />
+          
+          <RecurringTransactions 
+            recurringTransactions={recurringTransactions}
+            onAdd={addRecurringTransaction}
+            onDelete={deleteRecurringTransaction}
+          />
 
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 lg:gap-6 mt-8">
             <div className="xl:col-span-8 order-2 xl:order-1 space-y-4">
